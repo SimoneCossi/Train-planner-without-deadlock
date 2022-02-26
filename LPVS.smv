@@ -1,0 +1,776 @@
+-- Simone Cossi
+-- Matricola: 290796
+-- Progetto LPVS
+
+-- Ci sono 8 treni: 2 Verdi, 2 Rossi, 2 Gialli, 2 Blu
+--                  V1, V2   R1, R2   G1, G2    B1, B2    
+-- Ogni treno ha un suo percorso
+-- Verificare se ogni treno arriva a fine percorso senza problemi
+
+
+
+MODULE main
+
+
+VAR
+	-- Per gestire i turni dei vari treni
+	turno: 0..7; 
+	
+	-- Per tappe si intende lo stato di avanzamento del treno lungo il proprio percorso
+	-- Tappe treni V, R : 11
+	tappaV1: 0..10;
+	tappaV2: 0..10;
+
+	tappaR1: 0..10;
+	tappaR2: 0..10;
+
+	-- Tappe Treni G, B : 9
+	tappaG1: 0..8;
+	tappaG2: 0..8;
+
+	tappaB1: 0..8;
+	tappaB2: 0..8;
+	
+
+	-- Contatori delle zone critiche
+	-- Ogni zona ha un numero massimo di treni simultanei
+	cA: 0..1; -- [1, 3] Linea V
+	cB: 0..1; -- [2, 3] Linea R
+	cC: 0..3; -- [3, 4, 6, 5] Linee V, R
+	cD: 0..3; -- [6, 7, 9, 8] Linee V, R
+	cE: 0..6; -- [] ---------chiedi perchè 6
+	cF: 0..6; ---[] ---------chiedi perchè 6
+	cG: 0..1; -- [31, 30] Linea G
+	cH: 0..1; -- [32, 30] Linea B
+	cI: 0..3; -- [30, 28, 27, 29] Linee G, B
+
+
+DEFINE
+
+	-- Percorso di ogni treno
+	V1:= [1, 3, 4, 6, 7, 9, 10, 13, 15, 20, 23];
+	V2:= [23, 22, 17, 18, 11, 9, 8, 6, 5, 3, 1];
+
+	R1:= [2, 3, 4, 6, 7, 9, 10, 13, 15, 20, 24];
+	R2:= [24, 22, 17, 18, 11, 9, 8, 6, 5, 3, 2];
+
+	G1:= [31, 30, 28, 27, 11, 13, 16, 20, 25];
+	G2:= [25, 22, 17, 18, 12, 27, 29, 30, 31];
+
+	B1:= [32, 30, 28, 27, 11, 13, 16, 20, 26];
+	B2:= [26, 22, 17, 18, 12, 27, 29, 30, 32];
+
+	
+	-- Numero massimo di treni per sezione critica
+	maxA:= 1;
+	maxB:= 1;
+	maxC:= 3;
+	maxD:= 3;
+	maxE:= 6;
+	maxF:= 6;
+	maxG:= 1;
+	maxH:= 1;
+	maxI:= 3;
+
+	
+	-- Entrata e uscita di ogni treno da una zona critica
+	-- Rappresentato come un array di interi dove 1 indica l'ingresso, -1 indica l'uscita e 0 indica nessun azione rispetto la zona
+	AV1:= [0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0];
+	AV2:= [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0];
+
+	BR1:= [0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0]; 
+	BR2:= [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0];
+
+	CV1:= [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 0];
+	CV2:= [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1];
+	CR1:= [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 0];
+	CR2:= [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1];
+
+	DV1:= [0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0];
+	DV2:= [0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0];
+	DR1:= [0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0];
+	DR2:= [0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0];
+
+	EV1:= [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1];
+        EV2:= [0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0];
+        ER1:= [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1];
+        ER2:= [0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0];
+        EG1:= [0, 0, 0, 0, 1, 0, 0, 0, 0];
+        EG2:= [0, 0, 0, 0, -1, 0, 0, 0, 0];
+	EB1:= [0, 0, 0, 0, 1, 0, 0, 0, -1];
+	EB2:= [0, 1, 0, 0, -1, 0, 0, 0, 0];
+
+	FV1:= [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1];
+        FV2:= [0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0];
+        FR1:= [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1];
+        FR2:= [0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0];
+        FG1:= [0, 0, 0, 0, 1, 0, 0, 0, -1];
+        FG2:= [0, 1, 0, 0, -1, 0, 0, 0, 0];
+	FB1:= [0, 0, 0, 0, 1, 0, 0, 0, 0];
+	FB2:= [0, 0, 0, 0, -1, 0, 0, 0, 0];
+
+	GG1:= [0, 0, -1, 0, 0, 0, 0, 0, 0];
+	GG2:= [0, 0, 0, 0, 0, 0, 0, 1, 0];
+
+	HB1:= [0, 0, -1, 0, 0, 0, 0, 0, 0];
+	HB2:= [0, 0, 0, 0, 0, 0, 0, 1, 0];
+
+	IG1:= [0, 1, 0, 0, -1, 0, 0, 0, 0];
+	IG2:= [0, 0, 0, 0, 0, 1, 0, 0, -1];
+	IB1:= [0, 1, 0, 0, -1, 0, 0, 0, 0];
+	IB2:= [0, 0, 0, 0, 0, 1, 0, 0, -1];
+
+
+	-- Controllo tramite raggruppamento che tutte le zone critiche attraversate da un treno non siano piene
+	maxV1 := cA + AV1[tappaV1+1] <= maxA	&
+		 cC + CV1[tappaV1+1] <= maxC	&
+		 cD + DV1[tappaV1+1] <= maxD	&
+		 cE + EV1[tappaV1+1] <= maxE	&
+		 cF + FV1[tappaV1+1] <= maxF	;
+
+	maxV2 := cA + AV2[tappaV2+1] <= maxA	&
+		 cC + CV2[tappaV2+1] <= maxC	&
+		 cD + DV2[tappaV2+1] <= maxD	&
+		 cE + EV2[tappaV2+1] <= maxE	&
+		 cF + FV2[tappaV2+1] <= maxF	;
+
+	maxR1 := cB + BR1[tappaR1+1] <= maxB	&
+		 cC + CR1[tappaR1+1] <= maxC	&
+		 cD + DR1[tappaR1+1] <= maxD	&
+		 cE + ER1[tappaR1+1] <= maxE	&
+		 cF + FR1[tappaR1+1] <= maxF	;
+
+	maxR2 := cB + BR2[tappaR2+1] <= maxB	&
+		 cC + CR2[tappaR2+1] <= maxC	&
+		 cD + DR2[tappaR2+1] <= maxD	&
+		 cE + ER2[tappaR2+1] <= maxE	&
+		 cF + FR2[tappaR2+1] <= maxF	;
+
+	maxG1 := cG + GG1[tappaG1+1] <= maxG	&
+		 cI + IG1[tappaG1+1] <= maxI	&
+		 cE + EG1[tappaG1+1] <= maxE	&
+		 cF + FG1[tappaG1+1] <= maxF	;
+
+	maxG2 := cG + GG2[tappaG2+1] <= maxG	&
+		 cI + IG2[tappaG2+1] <= maxI	&
+		 cE + EG2[tappaG2+1] <= maxE	&
+		 cF + FG2[tappaG2+1] <= maxF	;
+
+	maxB1 := cH + HB1[tappaB1+1] <= maxH	&
+		 cI + IB1[tappaB1+1] <= maxI	&
+		 cE + EB1[tappaB1+1] <= maxE	&
+		 cF + FB1[tappaB1+1] <= maxF	;
+
+	maxB2 := cH + HB2[tappaB2+1] <= maxH	&
+		 cI + IB2[tappaB2+1] <= maxI	&
+		 cE + EB2[tappaB2+1] <= maxE	&
+		 cF + FB2[tappaB2+1] <= maxF	;
+
+
+ASSIGN
+
+	-- Inizializzazione delle variabili
+	-- Ogni treno parte da 0
+	init(tappaV1):= 0; 
+	init(tappaV2):= 0;
+
+	init(tappaR1):= 0;
+	init(tappaR2):= 0;
+
+	init(tappaG1):= 0;
+	init(tappaG2):= 0;
+
+	init(tappaB1):= 0;
+	init(tappaB2):= 0;
+
+	-- Alcune zone critiche hanno già dei treni all'interno e avranno valore iniziale 1
+	-- le altre avranno valore inziale 0
+	init(cA):= 1;
+	init(cB):= 1;
+	init(cC):= 0;
+	init(cD):= 0;
+	init(cE):= 1;
+	init(cF):= 1;
+	init(cG):= 1;
+	init(cH):= 1;
+	init(cI):= 0;
+
+
+	-- Per ogni treno si coontrolla che la prossima tappa sia libera e
+	-- che la zona critica non abbia raggiunto il num max 
+	-- se è tutto libero procede
+	next(tappaV1):=
+		case
+		        (turno = 0 &
+			 tappaV1 < 10 &
+		    	 V1[tappaV1+1] != V2[tappaV2]	&
+		    	 V1[tappaV1+1] != R1[tappaR1]	&		
+		    	 V1[tappaV1+1] != R2[tappaR2]	&
+		    	 V1[tappaV1+1] != G1[tappaG1]	&
+		    	 V1[tappaV1+1] != B1[tappaB1]	&
+			 maxV1			      ) :
+			tappaV1 + 1;
+			TRUE : tappaV1;
+		esac;
+
+	next(tappaV2):=
+		case
+		        (turno = 1 &
+			 tappaV2 < 10 &
+		    	 V2[tappaV2+1] != V1[tappaV1]	&
+		    	 V2[tappaV2+1] != R1[tappaR1]	&			
+		    	 V2[tappaV2+1] != R2[tappaR2]	&
+		    	 V2[tappaV2+1] != G1[tappaG1]	&
+		    	 V2[tappaV2+1] != G2[tappaG2]	&
+		    	 V2[tappaV2+1] != B1[tappaB1]	&
+		    	 V2[tappaV2+1] != B2[tappaB2]	&
+			 maxV2   		      ) :
+			tappaV2 + 1;
+			TRUE : tappaV2;
+		esac;
+
+
+	next(tappaR1):=
+		case
+		        (turno = 2 &
+			 tappaR1 < 10 &
+		    	 R1[tappaR1+1] != V1[tappaV1]	&
+		    	 R1[tappaR1+1] != V2[tappaV2]	&			
+		    	 R1[tappaR1+1] != R2[tappaR2]	&
+		    	 R1[tappaR1+1] != G1[tappaG1]	&
+		    	 R1[tappaR1+1] != B1[tappaB1]	&
+			 maxR1			      ) :
+			tappaR1 + 1;
+			TRUE : tappaR1;
+		esac;
+
+	next(tappaR2):=
+		case
+		        (turno = 3 &
+			 tappaR2 < 10 &
+		    	 R2[tappaR2+1] != V1[tappaV1]	&
+		    	 R2[tappaR2+1] != V2[tappaV2]	&			
+		    	 R2[tappaR2+1] != R1[tappaR1]	&
+		    	 R2[tappaR2+1] != G1[tappaG1]	&
+		    	 R2[tappaR2+1] != G2[tappaG2]	&
+		    	 R2[tappaR2+1] != B1[tappaB1]	&
+		    	 R2[tappaR2+1] != B2[tappaB2]	&
+			 maxR2			      ) :
+			tappaR2 + 1;
+			TRUE : tappaR1;
+		esac;
+
+
+	next(tappaG1):=
+		case
+		        (turno = 4 &
+			 tappaG1 < 8 &
+		    	 G1[tappaG1+1] != V1[tappaV1]	&
+		    	 G1[tappaG1+1] != V2[tappaV2]	&
+		    	 G1[tappaG1+1] != R1[tappaR1]	&			
+		    	 G1[tappaG1+1] != R2[tappaR2]	&
+		    	 G1[tappaG1+1] != G2[tappaG2]	&
+		    	 G1[tappaG1+1] != B1[tappaB1]	&
+		    	 G1[tappaG1+1] != B2[tappaB2]	&
+			 maxG1			      ) :
+			tappaG1 + 1;
+			TRUE : tappaG1;
+		esac;
+
+	next(tappaG2):=
+		case
+		        (turno = 5 &
+			 tappaG2 < 8 &
+		    	 G2[tappaG2+1] != V2[tappaV2]	&			
+		    	 G2[tappaG2+1] != R2[tappaR2]	&
+		    	 G2[tappaG2+1] != G1[tappaG1]	&
+		    	 G2[tappaG2+1] != B1[tappaB1]	&
+		    	 G2[tappaG2+1] != B2[tappaB2]	&
+			 maxG2			      ) :
+			tappaG2 + 1;
+			TRUE : tappaG2;
+		esac;
+
+
+	next(tappaB1):=
+		case
+		        (turno = 6 &
+			 tappaB1 < 8 &
+		    	 B1[tappaB1+1] != V1[tappaV1]	&
+		    	 B1[tappaB1+1] != V2[tappaV2]	&
+		    	 B1[tappaB1+1] != R1[tappaR1]	&			
+		    	 B1[tappaB1+1] != R2[tappaR2]	&
+		    	 B1[tappaB1+1] != G1[tappaG1]	&
+		    	 B1[tappaB1+1] != G2[tappaG2]	&
+		    	 B1[tappaB1+1] != B2[tappaB2]	&
+			 maxB1			      ) :
+			tappaB1 + 1;
+			TRUE : tappaB1;
+		esac;
+
+	next(tappaB2):=
+		case
+		        (turno = 7 &
+			 tappaB2 < 8 &
+		    	 B2[tappaB2+1] != V2[tappaV2]	&			
+		    	 B2[tappaB2+1] != R2[tappaR2]	&
+		    	 B2[tappaB2+1] != G1[tappaG1]	&
+		    	 B2[tappaB2+1] != G2[tappaG2]	&
+		    	 B2[tappaB2+1] != B1[tappaB1]	&
+			 maxB2			      ) :
+			tappaB2 + 1;
+			TRUE : tappaB1;
+		esac;
+
+
+	-- Aumento/Decremento dei contatori di ogni sezione critica in base alle posizioni dei treni
+	next(cA) :=
+		case
+		       (turno = 0 &
+			tappaV1 < 10 &
+		    	V1[tappaV1+1] != V2[tappaV2]	&
+		    	V1[tappaV1+1] != R1[tappaR1]	&		
+		    	V1[tappaV1+1] != R2[tappaR2]	&
+			cA + AV1[tappaV1+1] <= maxA	&
+			cA + AV1[tappaV1+1] >= 0      ) :
+			cA + AV1[tappaV1+1];
+
+		       (turno = 1 &
+			tappaV2 < 10 &
+		    	V2[tappaV2+1] != V1[tappaV1]	&
+		    	V2[tappaV2+1] != R1[tappaR1]	&		
+		    	V2[tappaV2+1] != R2[tappaR2]	&
+			cA + AV2[tappaV2+1] <= maxA	&
+			cA + AV2[tappaV2+1] >= 0      ) :
+			cA + AV2[tappaV2+1];
+		
+			TRUE : cA;
+		esac;
+
+
+	next(cB) :=
+		case
+		       (turno = 2 &
+			tappaR1 < 10 &
+		    	R1[tappaR1+1] != V1[tappaV1]	&
+		    	R1[tappaR1+1] != V2[tappaV2]	&			
+		    	R1[tappaR1+1] != R2[tappaR2]	&
+			cB + BR1[tappaR1+1] <= maxB	&
+			cB + BR1[tappaR1+1] >= 0      ) :
+			cB + BR1[tappaR1+1];
+
+		       (turno = 3 &
+			tappaR2 < 10 &
+		    	R2[tappaR2+1] != V1[tappaV1]	&
+		    	R2[tappaR2+1] != V2[tappaV2]	&			
+		    	R2[tappaR2+1] != R1[tappaR1]	&
+			cB + BR2[tappaR2+1] <= maxB	&
+			cB + BR2[tappaR2+1] >= 0      ) :
+			cB + BR2[tappaR2+1];
+
+			TRUE : cB;
+		esac;
+
+
+	next(cC) :=
+		case
+		       (turno = 0 &
+			tappaV1 < 10 &
+		    	V1[tappaV1+1] != V2[tappaV2]	&
+		    	V1[tappaV1+1] != R1[tappaR1]	&		
+		    	V1[tappaV1+1] != R2[tappaR2]	&
+                	cC + CV1[tappaV1+1] <= maxC 	&
+                	cC + CV1[tappaV1+1] >= 0      ) :
+                	cC + CV1[tappaV1+1];
+
+		       (turno = 01 &
+			tappaV2 < 10 &
+		    	V2[tappaV2+1] != V1[tappaV1]	&
+		    	V2[tappaV2+1] != R1[tappaR1]	&		
+		    	V2[tappaV2+1] != R2[tappaR2]	&
+			cC + CV2[tappaV2+1] <= maxC	&
+			cC + CV2[tappaV2+1] >= 0      ) :
+			cC + CV2[tappaV2+1];
+
+		       (turno = 2 &
+			tappaR1 < 10 &
+		    	R1[tappaR1+1] != V1[tappaV1]	&
+		    	R1[tappaR1+1] != V2[tappaV2]	&			
+		    	R1[tappaR1+1] != R2[tappaR2]	&
+			cC + CR1[tappaR1+1] <= maxC	&
+			cC + CR1[tappaR1+1] >= 0      ) :
+			cC + CR1[tappaR1+1];
+
+		       (turno = 3 &
+			tappaR2 < 10 &
+		    	R2[tappaR2+1] != V1[tappaV1]	&
+		    	R2[tappaR2+1] != V2[tappaV2]	&			
+		    	R2[tappaR2+1] != R1[tappaR1]	&
+			cC + CR2[tappaR2+1] <= maxC	&
+			cC + CR2[tappaR2+1] >= 0      ) :
+			cC + CR2[tappaR2+1];
+
+			TRUE : cC;
+		esac;
+
+
+	next(cD) :=
+		case
+		       (turno = 0 &
+			tappaV1 < 10 &
+		    	V1[tappaV1+1] != V2[tappaV2]	&
+		    	V1[tappaV1+1] != R1[tappaR1]	&		
+		    	V1[tappaV1+1] != R2[tappaR2]	&
+                	cD + DV1[tappaV1+1] <= maxD 	&
+                	cD + DV1[tappaV1+1] >= 0      ) :
+                	cD + DV1[tappaV1+1];
+
+		       (turno = 01 &
+			tappaV2 < 10 &
+		    	V2[tappaV2+1] != V1[tappaV1]	&
+		    	V2[tappaV2+1] != R1[tappaR1]	&		
+		    	V2[tappaV2+1] != R2[tappaR2]	&
+			cD + DV2[tappaV2+1] <= maxD	&
+			cD + DV2[tappaV2+1] >= 0      ) :
+			cD + DV2[tappaV2+1];
+
+		       (turno = 2 &
+			tappaR1 < 10 &
+		    	R1[tappaR1+1] != V1[tappaV1]	&
+		    	R1[tappaR1+1] != V2[tappaV2]	&			
+		    	R1[tappaR1+1] != R2[tappaR2]	&
+			cD + DR1[tappaR1+1] <= maxD	&
+			cD + DR1[tappaR1+1] >= 0      ) :
+			cD + DR1[tappaR1+1];
+
+		       (turno = 3 &
+			tappaR2 < 10 &
+		    	R2[tappaR2+1] != V1[tappaV1]	&
+		    	R2[tappaR2+1] != V2[tappaV2]	&			
+		    	R2[tappaR2+1] != R1[tappaR1]	&
+			cD + DR2[tappaR2+1] <= maxD	&
+			cD + DR2[tappaR2+1] >= 0      ) :
+			cD + DR2[tappaR2+1];
+
+			TRUE : cD;
+		esac;
+
+
+	next(cE) :=
+		case
+		       (turno = 0 &
+			tappaV1 < 10 &
+		    	V1[tappaV1+1] != V2[tappaV2]	&
+		    	V1[tappaV1+1] != R1[tappaR1]	&		
+		    	V1[tappaV1+1] != R2[tappaR2]	&
+		    	V1[tappaV1+1] != G1[tappaG1]	&
+		    	V1[tappaV1+1] != B1[tappaB1]	&
+			cE + EV1[tappaV1+1] <= maxE	&
+			cE + EV1[tappaV1+1] >= 0      ) :
+			cE + EV1[tappaV1+1];
+
+		       (turno = 1 &
+			tappaV2 < 10 &
+		    	V2[tappaV2+1] != V1[tappaV1]	&
+		    	V2[tappaV2+1] != R1[tappaR1]	&			
+		    	V2[tappaV2+1] != R2[tappaR2]	&
+		    	V2[tappaV2+1] != G1[tappaG1]	&
+		    	V2[tappaV2+1] != G2[tappaG2]	&
+		    	V2[tappaV2+1] != B1[tappaB1]	&
+		    	V2[tappaV2+1] != B2[tappaB2]	&
+			cE + EV2[tappaV2+1] <= maxE	&
+			cE + EV2[tappaV2+1] >= 0      ) :
+			cE + EV2[tappaV2+1];
+
+		       (turno = 2 &
+			tappaR1 < 10 &
+		    	R1[tappaR1+1] != V1[tappaV1]	&
+		    	R1[tappaR1+1] != V2[tappaV2]	&			
+		    	R1[tappaR1+1] != R2[tappaR2]	&
+		    	R1[tappaR1+1] != G1[tappaG1]	&
+		    	R1[tappaR1+1] != B1[tappaB1]	&
+			cE + ER1[tappaR1+1] <= maxE	&
+			cE + ER1[tappaR1+1] >= 0      ) :
+			cE + ER1[tappaR1+1];
+
+		       (turno = 3 &
+			tappaR2 < 10 &
+		    	R2[tappaR2+1] != V1[tappaV1]	&
+		    	R2[tappaR2+1] != V2[tappaV2]	&			
+		    	R2[tappaR2+1] != R1[tappaR1]	&
+		    	R2[tappaR2+1] != G1[tappaG1]	&
+		    	R2[tappaR2+1] != G2[tappaG2]	&
+		    	R2[tappaR2+1] != B1[tappaB1]	&
+		    	R2[tappaR2+1] != B2[tappaB2]	&
+			cE + ER2[tappaR2+1] <= maxE	&
+			cE + ER2[tappaR2+1] >= 0      ) :
+			cE + ER2[tappaR2+1];
+
+
+		       (turno = 4 &
+			tappaG1 < 8 &
+		    	G1[tappaG1+1] != V1[tappaV1]	&
+		    	G1[tappaG1+1] != V2[tappaV2]	&
+		    	G1[tappaG1+1] != R1[tappaR1]	&			
+		    	G1[tappaG1+1] != R2[tappaR2]	&
+		    	G1[tappaG1+1] != G2[tappaG2]	&
+		    	G1[tappaG1+1] != B1[tappaB1]	&
+		    	G1[tappaG1+1] != B2[tappaB2]	&
+			cE + EG1[tappaG1+1] <= maxE	&
+			cE + EG1[tappaG1+1] >= 0      ) :
+			cE + EG1[tappaG1+1];
+
+		       (turno = 5 &
+			tappaG2 < 8 &
+		    	G2[tappaG2+1] != V2[tappaV2]	&			
+		    	G2[tappaG2+1] != R2[tappaR2]	&
+		    	G2[tappaG2+1] != G1[tappaG1]	&
+		    	G2[tappaG2+1] != B1[tappaB1]	&
+		    	G2[tappaG2+1] != B2[tappaB2]	&
+			cE + EG2[tappaG2+1] <= maxE	&
+			cE + EG2[tappaG2+1] >= 0      ) :
+			cE + EG2[tappaG2+1];
+
+		       (turno = 6 &
+			tappaB1 < 8 &
+		    	B1[tappaB1+1] != V1[tappaV1]	&
+		    	B1[tappaB1+1] != V2[tappaV2]	&
+		    	B1[tappaB1+1] != R1[tappaR1]	&			
+		    	B1[tappaB1+1] != R2[tappaR2]	&
+		    	B1[tappaB1+1] != G1[tappaG1]	&
+		    	B1[tappaB1+1] != G2[tappaG2]	&
+		    	B1[tappaB1+1] != B2[tappaB2]	&
+			cE + EB1[tappaB1+1] <= maxE	&
+			cE + EB1[tappaB1+1] >= 0      ) :
+			cE + EB1[tappaB1+1];
+
+		       (turno = 7 &
+			tappaB2 < 8 &
+		    	B2[tappaB2+1] != V2[tappaV2]	&			
+		    	B2[tappaB2+1] != R2[tappaR2]	&
+		    	B2[tappaB2+1] != G1[tappaG1]	&
+		    	B2[tappaB2+1] != G2[tappaG2]	&
+		    	B2[tappaB2+1] != B1[tappaB1]	&
+			cE + EB2[tappaB2+1] <= maxE	&
+			cE + EB2[tappaB2+1] >= 0      ) :
+			cE + EB2[tappaB2+1];
+		
+			TRUE : cE;
+		esac;
+
+
+	next(cF) :=
+		case
+		       (turno = 0 &
+			tappaV1 < 10 &
+		    	V1[tappaV1+1] != V2[tappaV2]	&
+		    	V1[tappaV1+1] != R1[tappaR1]	&		
+		    	V1[tappaV1+1] != R2[tappaR2]	&
+		    	V1[tappaV1+1] != G1[tappaG1]	&
+		    	V1[tappaV1+1] != B1[tappaB1]	&
+			cF + FV1[tappaV1+1] <= maxF	&
+			cF + FV1[tappaV1+1] >= 0      ) :
+			cF + FV1[tappaV1+1];
+
+		       (turno = 1 &
+			tappaV2 < 10 &
+		    	V2[tappaV2+1] != V1[tappaV1]	&
+		    	V2[tappaV2+1] != R1[tappaR1]	&			
+		    	V2[tappaV2+1] != R2[tappaR2]	&
+		    	V2[tappaV2+1] != G1[tappaG1]	&
+		    	V2[tappaV2+1] != G2[tappaG2]	&
+		    	V2[tappaV2+1] != B1[tappaB1]	&
+		    	V2[tappaV2+1] != B2[tappaB2]	&
+			cF + FV2[tappaV2+1] <= maxF	&
+			cF + FV2[tappaV2+1] >= 0      ) :
+			cF + FV2[tappaV2+1];
+
+		       (turno = 2 &
+			tappaR1 < 10 &
+		    	R1[tappaR1+1] != V1[tappaV1]	&
+		    	R1[tappaR1+1] != V2[tappaV2]	&			
+		    	R1[tappaR1+1] != R2[tappaR2]	&
+		    	R1[tappaR1+1] != G1[tappaG1]	&
+		    	R1[tappaR1+1] != B1[tappaB1]	&
+			cF + FR1[tappaR1+1] <= maxF	&
+			cF + FR1[tappaR1+1] >= 0      ) :
+			cF + FR1[tappaR1+1];
+
+		       (turno = 3 &
+			tappaR2 < 10 &
+		    	R2[tappaR2+1] != V1[tappaV1]	&
+		    	R2[tappaR2+1] != V2[tappaV2]	&			
+		    	R2[tappaR2+1] != R1[tappaR1]	&
+		    	R2[tappaR2+1] != G1[tappaG1]	&
+		    	R2[tappaR2+1] != G2[tappaG2]	&
+		    	R2[tappaR2+1] != B1[tappaB1]	&
+		    	R2[tappaR2+1] != B2[tappaB2]	&
+			cF + FR2[tappaR2+1] <= maxF	&
+			cF + FR2[tappaR2+1] >= 0      ) :
+			cF + FR2[tappaR2+1];
+
+
+		       (turno = 4 &
+			tappaG1 < 8 &
+		    	G1[tappaG1+1] != V1[tappaV1]	&
+		    	G1[tappaG1+1] != V2[tappaV2]	&
+		    	G1[tappaG1+1] != R1[tappaR1]	&			
+		    	G1[tappaG1+1] != R2[tappaR2]	&
+		    	G1[tappaG1+1] != G2[tappaG2]	&
+		    	G1[tappaG1+1] != B1[tappaB1]	&
+		    	G1[tappaG1+1] != B2[tappaB2]	&
+			cF + FG1[tappaG1+1] <= maxF	&
+			cF + FG1[tappaG1+1] >= 0      ) :
+			cF + FG1[tappaG1+1];
+
+		       (turno = 5 &
+			tappaG2 < 8 &
+		    	G2[tappaG2+1] != V2[tappaV2]	&			
+		    	G2[tappaG2+1] != R2[tappaR2]	&
+		    	G2[tappaG2+1] != G1[tappaG1]	&
+		    	G2[tappaG2+1] != B1[tappaB1]	&
+		    	G2[tappaG2+1] != B2[tappaB2]	&
+			cF + FG2[tappaG2+1] <= maxF	&
+			cF + FG2[tappaG2+1] >= 0      ) :
+			cF + FG2[tappaG2+1];
+
+		       (turno = 6 &
+			tappaB1 < 8 &
+		    	B1[tappaB1+1] != V1[tappaV1]	&
+		    	B1[tappaB1+1] != V2[tappaV2]	&
+		    	B1[tappaB1+1] != R1[tappaR1]	&			
+		    	B1[tappaB1+1] != R2[tappaR2]	&
+		    	B1[tappaB1+1] != G1[tappaG1]	&
+		    	B1[tappaB1+1] != G2[tappaG2]	&
+		    	B1[tappaB1+1] != B2[tappaB2]	&
+			cF + FB1[tappaB1+1] <= maxF	&
+			cF + FB1[tappaB1+1] >= 0      ) :
+			cF + FB1[tappaB1+1];
+
+		       (turno = 7 &
+			tappaB2 < 8 &
+		    	B2[tappaB2+1] != V2[tappaV2]	&			
+		    	B2[tappaB2+1] != R2[tappaR2]	&
+		    	B2[tappaB2+1] != G1[tappaG1]	&
+		    	B2[tappaB2+1] != G2[tappaG2]	&
+		    	B2[tappaB2+1] != B1[tappaB1]	&
+			cF + FB2[tappaB2+1] <= maxF	&
+			cF + FB2[tappaB2+1] >= 0      ) :
+			cF + FB2[tappaB2+1];
+		
+			TRUE : cF;
+		esac;
+
+
+	next(cG) :=
+		case
+		       (turno = 4 &
+			tappaG1 < 8 &
+		    	G1[tappaG1+1] != G2[tappaG2]	&
+		    	G1[tappaG1+1] != B1[tappaB1]	&		
+		    	G1[tappaG1+1] != B2[tappaB2]	&
+			cG + GG1[tappaG1+1] <= maxG	&
+			cG + GG1[tappaG1+1] >= 0      ) :
+			cG + GG1[tappaG1+1];
+
+		       (turno = 5 &
+			tappaG2 < 8 &
+		    	G2[tappaG2+1] != G1[tappaG1]	&
+		    	G2[tappaG2+1] != B1[tappaB1]	&		
+		    	G2[tappaG2+1] != B2[tappaB2]	&
+			cG + GG2[tappaG2+1] <= maxG	&
+			cG + GG2[tappaG2+1] >= 0      ) :
+			cG + GG2[tappaG2+1];
+		
+			TRUE : cG;
+		esac;
+
+
+	next(cH) :=
+		case
+		       (turno = 6 &
+			tappaB1 < 8 &
+		    	B1[tappaB1+1] != G1[tappaG1]	&
+		    	B1[tappaB1+1] != G2[tappaG2]	&		
+		    	B1[tappaB1+1] != B2[tappaB2]	&
+			cH + HB1[tappaB1+1] <= maxH	&
+			cH + HB1[tappaB1+1] >= 0      ) :
+			cH + HB1[tappaB1+1];
+
+		       (turno = 7 &
+			tappaB2 < 8 &
+		    	B2[tappaB2+1] != G1[tappaG1]	&
+		    	B2[tappaB2+1] != G2[tappaG2]	&		
+		    	B2[tappaB2+1] != B1[tappaB1]	&
+			cH + HB2[tappaB2+1] <= maxH	&
+			cH + HB2[tappaB2+1] >= 0      ) :
+			cH + HB2[tappaB2+1];
+		
+			TRUE : cH;
+		esac;
+
+
+	next(cI) :=
+		case
+		       (turno = 4 &
+			tappaG1 < 8 &
+		    	G1[tappaG1+1] != G2[tappaG2]	&
+		    	G1[tappaG1+1] != B1[tappaB1]	&		
+		    	G1[tappaG1+1] != B2[tappaB2]	&
+			cI + IG1[tappaG1+1] <= maxI	&
+			cI + IG1[tappaG1+1] >= 0      ) :
+			cI + IG1[tappaG1+1];
+
+		       (turno = 5 &
+			tappaG2 < 8 &
+		    	G2[tappaG2+1] != G1[tappaG1]	&
+		    	G2[tappaG2+1] != B1[tappaB1]	&		
+		    	G2[tappaG2+1] != B2[tappaB2]	&
+			cI + IG2[tappaG2+1] <= maxI	&
+			cI + IG2[tappaG2+1] >= 0      ) :
+			cI + IG2[tappaG2+1];
+
+		       (turno = 6 &
+			tappaB1 < 8 &
+		    	B1[tappaB1+1] != G1[tappaG1]	&
+		    	B1[tappaB1+1] != G2[tappaG2]	&		
+		    	B1[tappaB1+1] != B2[tappaB2]	&
+			cI + IB1[tappaB1+1] <= maxI	&
+			cI + IB1[tappaB1+1] >= 0      ) :
+			cI + IB1[tappaB1+1];
+
+		       (turno = 7 &
+			tappaB2 < 8 &
+		    	B2[tappaB2+1] != G1[tappaG1]	&
+		    	B2[tappaB2+1] != G2[tappaG2]	&		
+		    	B2[tappaB2+1] != B1[tappaB1]	&
+			cI + IB2[tappaB2+1] <= maxI	&
+			cI + IB2[tappaB2+1] >= 0      ) :
+			cI + IB2[tappaB2+1];
+		
+			TRUE : cH;
+		esac;
+
+	
+	--A seconda del valore di 'turno' decidiamo quale treno andare a gestire, questo per garantire la corretta esecuzione. 
+        next(turno):=
+        case 
+            turno < 7 : turno + 1;
+            TRUE: 0;
+        esac;
+
+
+	-- Verifica che ogni treno abbia finito il suo percorso raggiungendo l'ultima stazione.
+	-- Nessun bisogno di una formula CTL perché il sistema segue sempre lo stesso percorso, dato che gestisce la variabile turno.
+    	LTLSPEC
+    	F( 
+		(tappaV1 = 10) 	& 
+       		(tappaV2 = 10) 	& 
+       		(tappaR1 = 10)	& 
+       		(tappaR2 = 10) 	& 
+       		(tappaG1 = 8)  	& 
+       		(tappaG2 = 8)	&  
+		(tappaB1 = 8)	&
+		(tappaB2 = 8)	)
+
+
